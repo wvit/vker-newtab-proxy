@@ -1,0 +1,25 @@
+{
+  "name": "vker-newtab-proxy",
+  "description": "为 vker-newtab 提供 proxy 服务",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "build": "rollup --config --watch",
+    "nodemon": "nodemon dist/index"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mkcert": "^3.2.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/node": "^20.11.30",
+    "nodemon": "^3.1.0",
+    "rollup": "^4.13.0",
+    "rollup-plugin-copy": "^3.5.0",
+    "tslib": "^2.6.2"
+  }
+}
