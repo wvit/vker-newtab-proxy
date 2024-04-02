@@ -5,10 +5,14 @@ import copy from 'rollup-plugin-copy'
 
 /** @type {import('rollup').RollupOptions} */
 export default {
-  input: 'src/index.ts',
+  input: {
+    start: 'src/start.ts',
+    server: 'src/server.ts',
+  },
 
   output: {
-    file: 'dist/index.js',
+    dir: 'dist',
+    entryFileNames: '[name].js',
     format: 'cjs',
   },
 

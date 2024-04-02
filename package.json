@@ -2,12 +2,12 @@
   "name": "vker-newtab-proxy",
   "description": "为 vker-newtab 提供 proxy 服务",
   "version": "0.0.1",
-  "bin": "dist/index.js",
-  "main": "index.js",
   "scripts": {
     "build": "rollup --config --watch",
     "nodemon": "nodemon dist/index",
-    "pkg": "pkg package.json"
+    "pkg:server": "pkg --config ./pkg/server.json dist/server.js",
+    "pkg:start": "pkg --config ./pkg/start.json dist/start.js",
+    "pkg": "npm run pkg:start && npm run pkg:server"
   },
   "author": "",
   "license": "ISC",
@@ -27,12 +27,5 @@
   },
   "resolutions": {
     "pkg-fetch": "^3.5.2"
-  },
-  "pkg": {
-    "assets": "public/*",
-    "targets": [
-      "node18-macos-x64"
-    ],
-    "outputPath": "pkg"
   }
 }
