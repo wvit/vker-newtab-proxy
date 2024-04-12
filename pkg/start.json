@@ -1,8 +1,0 @@
-{
-  "name": "start",
-  "pkg": {
-    "assets": ["../dist/startup.plist"],
-    "targets": ["node18-macos-x64"],
-    "outputPath": "app"
-  }
-}

@@ -4,10 +4,8 @@
   "version": "0.0.1",
   "scripts": {
     "build": "rollup --config --watch",
-    "nodemon": "nodemon dist/server",
-    "pkg:server": "pkg --config ./pkg/server.json dist/server.js",
-    "pkg:start": "pkg --config ./pkg/start.json dist/start.js",
-    "pkg": "npm run pkg:start && npm run pkg:server"
+    "nodemon": "nodemon dist/main",
+    "pkg": "pkg --config ./package.json dist/main.js"
   },
   "author": "",
   "license": "ISC",
@@ -29,5 +27,14 @@
   },
   "resolutions": {
     "pkg-fetch": "^3.5.2"
+  },
+  "pkg": {
+    "assets": [
+      "./dist/*.pem"
+    ],
+    "targets": [
+      "node18-macos-x64"
+    ],
+    "outputPath": "app"
   }
 }

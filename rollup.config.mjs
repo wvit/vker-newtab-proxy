@@ -7,8 +7,7 @@ import json from '@rollup/plugin-json';
 /** @type {import('rollup').RollupOptions} */
 export default {
   input: {
-    start: 'src/start.ts',
-    server: 'src/server.ts',
+    main: 'src/main.ts',
   },
 
   output: {
