@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "build": "rollup --config --watch",
-    "nodemon": "nodemon dist/index",
+    "nodemon": "nodemon dist/server",
     "pkg:server": "pkg --config ./pkg/server.json dist/server.js",
     "pkg:start": "pkg --config ./pkg/start.json dist/start.js",
     "pkg": "npm run pkg:start && npm run pkg:server"
@@ -12,10 +12,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.6.8",
     "mkcert": "^3.2.0"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-typescript": "^11.1.6",
     "@types/node": "^20.11.30",

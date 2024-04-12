@@ -5,19 +5,22 @@ import fs from 'node:fs'
 import net from 'node:net'
 import tls from 'node:tls'
 import qs from 'node:querystring'
+import axios from 'axios'
 import { createCert } from 'mkcert'
-
-const ca = {
-  key: fs.readFileSync(path.join(__dirname, './rootCA-key.pem')).toString(),
-  cert: fs.readFileSync(path.join(__dirname, './rootCA.pem')).toString(),
-}
 
 /** 当前正在代理的host */
 const proxyHost = {}
 
-/** 和浏览器交互的 server */
-const server = http
-  .createServer(async (request, response) => {
+/** web server配置 */
+const { proxyServerOption, clientServerOption, forwardServerOption } = {
+  proxyServerOption: { host: '127.0.0.1', port: 7890, protocol: 'http' },
+  clientServerOption: { host: '127.0.0.1', port: 7000 },
+  forwardServerOption: { host: '127.0.0.1', port: 6000 },
+}
+
+/** 创建浏览器交互的 web server */
+const createClientServer = () => {
+  const clientServer = http.createServer(async (request, response) => {
     const { url, method } = request
 
     if (method === 'POST') {
@@ -40,87 +43,106 @@ const server = http
       const query = qs.parse(url?.slice(2) || '{}')
     }
   })
-  .listen(7000, '127.0.0.1', () => {
-    console.log(`Server running at http://127.0.0.1:7000`)
+
+  clientServer.listen(clientServerOption.port, clientServerOption.host, () => {
+    console.log('已启动服务', clientServerOption)
   })
 
-/** 和第三方目标服务器交互的 server */
-const proxy = new https.Server({
-  SNICallback: async (hostname, callback) => {
-    const cert = await createCert({
-      ca,
-      domains: [hostname],
-      validity: 1,
+  clientServer.on('connect', (req, clientSocket, head) => {
+    /** 解析目标主机和端口 */
+    const [host, port] = req.url?.split(':') || []
+    const currentHost = proxyHost[host]
+    const socketOption = currentHost
+      ? forwardServerOption
+      : { host, port: Number(port) }
+
+    const targetSocket = net.connect(socketOption, () => {
+      console.log({ host, port }, '已连服务器', socketOption)
+
+      clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+      clientSocket.pipe(targetSocket)
+
+      targetSocket.write(head)
+      targetSocket.pipe(clientSocket)
     })
 
-    callback(
-      null,
-      tls.createSecureContext({
-        key: cert.key,
-        cert: cert.cert,
+    /** 处理目标服务器连接中断 */
+    targetSocket.on('end', () => {
+      clientSocket.end()
+    })
+
+    /** 处理客户端连接中断 */
+    clientSocket.on('end', () => {
+      targetSocket.end()
+    })
+  })
+}
+
+/** 创建一个转发 web server，用于修改html网页内容 */
+const createForwardServer = () => {
+  const ca = {
+    key: fs.readFileSync(path.join(__dirname, './rootCA-key.pem')).toString(),
+    cert: fs.readFileSync(path.join(__dirname, './rootCA.pem')).toString(),
+  }
+  const forwardServer = new https.Server({
+    SNICallback: async (hostname, callback) => {
+      const cert = await createCert({
+        ca,
+        domains: [hostname],
+        validity: 1,
       })
-    )
-  },
-}).listen(6000, '127.0.0.1', () => {
-  console.log(`Server running at https://127.0.0.1:6000`)
-})
 
-server.on('connect', (req, clientSocket, head) => {
-  /** 解析目标主机和端口 */
-  const [host, port] = req.url?.split(':') || []
-  const currentHost = proxyHost[host]
-
-  const proxySocket = net.connect(
-    {
-      host: '127.0.0.1',
-      port: 7890,
+      callback(
+        null,
+        tls.createSecureContext({
+          key: cert.key,
+          cert: cert.cert,
+        })
+      )
     },
+  })
+
+  forwardServer.listen(
+    forwardServerOption.port,
+    forwardServerOption.host,
     () => {
-      console.log('已连接到代理服务器', host, port)
-      const targetHost = currentHost ? '127.0.0.1' : host
-      const targetPort = currentHost ? 6000 : port
-
-      proxySocket.write(`CONNECT ${targetHost}:${targetPort} HTTP/1.1\r\n\r\n`)
-      proxySocket.write(head)
-      proxySocket.pipe(clientSocket)
-
-      clientSocket.pipe(proxySocket)
+      console.log('已启动服务', forwardServerOption)
     }
   )
 
-  /** 处理代理服务器连接中断 */
-  proxySocket.on('end', () => {
-    clientSocket.end()
-  })
+  forwardServer.on('request', async (request, response) => {
+    const { headers, url, method } = request
+    const { origin, css, js } = proxyHost[headers.host!]
+    const {
+      data,
+      status,
+      headers: resHeaders,
+    } = await axios(origin + url, {
+      method,
+      headers,
+      // proxy: proxyServerOption,
+    })
+    const responseText = typeof data === 'string' ? data : JSON.stringify(data)
 
-  /** 处理客户端连接中断 */
-  clientSocket.on('end', () => {
-    proxySocket.end()
-  })
-})
+    delete proxyHost[headers.host!]
 
-/** 监听向代理转发服务发送的请求 */
-proxy.on('request', async (request, response) => {
-  const { headers: reqHeaders, url, method } = request
-  const { origin, css, js } = proxyHost[reqHeaders.host!]
-  const res = await fetch(origin + url, { headers: reqHeaders as any, method })
-  const { status, headers: resHeaders } = res
-  const headers = Array.from(resHeaders.keys()).reduce((prev, key) => {
-    return { ...prev, [key]: resHeaders.get(key) }
-  }, {})
-  const responseText = await res.text()
-
-  delete proxyHost[reqHeaders.host!]
-
-  response.writeHead(status, { ...headers, 'content-encoding': 'identity' })
-  response.end(
-    responseText.replace(
-      '</body>',
-      `<style>${css}</style><script>${js}</script></body>`
+    response.writeHead(status, {
+      ...(resHeaders as any),
+      'content-encoding': 'identity',
+    })
+    response.end(
+      responseText.replace(
+        '</body>',
+        `<style>${css}</style><script>${js}</script></body>`
+      )
     )
-  )
-})
+  })
+}
 
 process.on('uncaughtException', err => {
   console.error('出错了', err.message)
 })
+
+createClientServer()
+
+createForwardServer()
