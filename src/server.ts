@@ -57,7 +57,7 @@ const createClientServer = () => {
       : { host, port: Number(port) }
 
     const targetSocket = net.connect(socketOption, () => {
-      console.log({ host, port }, '已连服务器', socketOption)
+      console.log(host, port, '已连服务器', socketOption)
 
       clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
       clientSocket.pipe(targetSocket)
